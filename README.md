@@ -2,15 +2,15 @@
 Simple app that generates self costodial wallet key pairs for Bitcoin (legacy), Bitcoin (BIP39), Ethereum, Solana<br>
 <br>
 <br>
-```
+``
 me@pc:~$ ./generateKeys 
 GENERATE KEYS
 Usage: ./generateKeys [btc, bip39, eth, sol] (xoxo,or,other,to,must,include,in,public)
-```
+``
 <br>
 if you want generate a public key with specific word in it you can.
 Example:
-```
+``
 me@pc:~$ ./generateKeys eth abcde,10000
 > generating eth keys that includes [abcde 10000]
                   "abcde" included in public key below

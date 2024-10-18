@@ -15,11 +15,9 @@ func (sol solana) Name() string {
 func (sol solana) GenerateKeys() (*KeyPair, error) {
 	wallet := types.NewAccount()
 
-	k := new(KeyPair)
-	k.network = "solana"
-	//k.private = base64.StdEncoding.EncodeToString(wallet.PrivateKey)
-	k.private = base58.Encode(wallet.PrivateKey)
-	k.public = wallet.PublicKey.ToBase58()
-
-	return k, nil
+	return &KeyPair{
+		network: "solana",
+		private: base58.Encode(wallet.PrivateKey),
+		public:  wallet.PublicKey.ToBase58(),
+	}, nil
 }

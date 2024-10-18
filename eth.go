@@ -42,10 +42,9 @@ func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 	hash.Write(publicKeyBytes[1:])
 	// fmt.Println(hexutil.Encode(hash.Sum(nil)[12:])) // 0x96216849c49358b10257cb55b28ea603c874b05e
 
-	k := new(KeyPair)
-	k.network = "ethereum"
-	k.private = hexutil.Encode(privateKeyBytes)[2:]
-	k.public = hexutil.Encode(hash.Sum(nil)[12:])
-
-	return k, nil
+	return &KeyPair{
+		network: "ethereum",
+		private: hexutil.Encode(privateKeyBytes)[2:],
+		public:  hexutil.Encode(hash.Sum(nil)[12:]),
+	}, nil
 }

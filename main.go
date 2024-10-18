@@ -15,6 +15,12 @@ type KeyPair struct {
 	derivationPath string
 }
 
+func Usage(code int) {
+	fmt.Println("GENERATE KEYS")
+	fmt.Println("Usage:", os.Args[0], "[btc, bip39, eth, sol] (xoxo,or,other,to,must,include,in,public)")
+	os.Exit(code)
+}
+
 // Print to std.out
 func (k KeyPair) Print() {
 	fmt.Printf("%-3s %-12s %s\n", k.network, "public", k.public)
@@ -32,16 +38,9 @@ type Network interface {
 	GenerateKeys() (*KeyPair, error)
 }
 
-func Split(s string) []string {
-	var slice []string
-	return append(slice, strings.Split(s, ",")...)
-}
-
 func main() {
-	if len(os.Args) == 1 {
-		fmt.Println("GENERATE KEYS")
-		fmt.Println("Usage:", os.Args[0], "[btc, bip39, eth, sol] (xoxo,or,other,to,must,include,in,public)")
-		return
+	if len(os.Args) < 2 {
+		Usage(1)
 	}
 
 	var coin Network
@@ -58,16 +57,11 @@ func main() {
 		log.Fatalf("%q not found\n", os.Args[1])
 	}
 
-	// fmt.Printf("%s\n%v\n", coin.Info(), coin.Info())
-	// os.Exit(0)
-
 	// If we just want to generate a keypair
 	if len(os.Args) == 2 {
 		if os.Args[1] != "btc" && os.Args[1] != "bitcoin" && os.Args[1] != "btc39" && os.Args[1] != "bip39" &&
 			os.Args[1] != "eth" && os.Args[1] != "ethereum" && os.Args[1] != "sol" && os.Args[1] != "solana" {
-			fmt.Println("GENERATE KEYS")
-			fmt.Println("Usage:", os.Args[0], "[btc, bip39, eth, sol] (xoxo,or,other,to,must,include,in,public)")
-			return
+			Usage(1)
 		}
 
 		keyPair, err := coin.GenerateKeys()
@@ -85,7 +79,7 @@ func main() {
 		return
 	}
 
-	wordlist := Split(os.Args[2])
+	wordlist := strings.Split(os.Args[2], ",") //Split(os.Args[2])
 	if len(wordlist) == 0 {
 		log.Fatalln("no words to include")
 	}

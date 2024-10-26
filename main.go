@@ -16,8 +16,20 @@ type KeyPair struct {
 }
 
 func Usage(code int) {
-	fmt.Println("GENERATE KEYS")
-	fmt.Println("Usage:", os.Args[0], "[btc, bip39, eth, sol] (xoxo,or,other,to,must,include,in,public)")
+	fmt.Printf(`GENERATE KEY PAIRS for Bitcoin, Ethereum, and Solana
+Usage: %s <network> [include]
+
+Arguments:
+  <network>    (required) Specifies the blockchain network.
+               Options:
+                 btc, bitcoin
+                 btc39, bip39
+                 eth, ethereum
+                 sol, solana
+
+  [include]    (optional) A comma-separated list of characters or words that the public key should include.
+               Example: abcde,10000
+`, os.Args[0])
 	os.Exit(code)
 }
 
@@ -43,16 +55,16 @@ func main() {
 		Usage(1)
 	}
 
-	var coin Network
+	var network Network
 	switch strings.ToLower(os.Args[1]) {
 	case "btc", "bitcoin":
-		coin = network["btc"]
+		network = btcMap["btc"]
 	case "btc39", "bip39":
-		coin = network["bip39"]
+		network = btcMap["bip39"]
 	case "eth", "ethereum":
-		coin = &ethereum{}
+		network = &ethereum{}
 	case "sol", "solana":
-		coin = &solana{}
+		network = &solana{}
 	default:
 		log.Fatalf("%q not found\n", os.Args[1])
 	}
@@ -64,7 +76,7 @@ func main() {
 			Usage(1)
 		}
 
-		keyPair, err := coin.GenerateKeys()
+		keyPair, err := network.GenerateKeys()
 		if err != nil {
 			log.Fatalln(os.Args[1], err)
 		}
@@ -84,10 +96,10 @@ func main() {
 		log.Fatalln("no words to include")
 	}
 
-	fmt.Printf("> generating %s keys that includes %s\n", os.Args[1], wordlist)
+	fmt.Printf("Generating %s keys that includes %s\n", network.Name(), wordlist)
 
 	for {
-		keyPair, err := coin.GenerateKeys()
+		keyPair, err := network.GenerateKeys()
 		if err != nil {
 			fmt.Println(os.Args[1], err)
 			return

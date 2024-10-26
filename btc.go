@@ -22,24 +22,24 @@ type bitcoin struct {
 	bip39 bool
 }
 
-func (nw bitcoin) Name() string {
-	return nw.name
+func (btc bitcoin) Name() string {
+	return btc.name
 }
 
-var network = map[string]bitcoin{
+var btcMap = map[string]bitcoin{
 	"btc":   {name: "bitcoin", xpub: 0x00, xpriv: 0x80, bip39: false},
 	"bip39": {name: "bitcoin[bip39]", xpub: 0x00, xpriv: 0x80, bip39: true},
 }
 
-func (nw bitcoin) getParams() *chaincfg.Params {
+func (btc bitcoin) getParams() *chaincfg.Params {
 	param := &chaincfg.MainNetParams
-	param.PubKeyHashAddrID = nw.xpub
-	param.PrivateKeyID = nw.xpriv
+	param.PubKeyHashAddrID = btc.xpub
+	param.PrivateKeyID = btc.xpriv
 	return param
 }
 
-func (nw bitcoin) createPrivateKey() (*btcutil.WIF, error) {
-	if nw.bip39 {
+func (btc bitcoin) createPrivateKey() (*btcutil.WIF, error) {
+	if btc.bip39 {
 		mnemonic, err := generateBIP39Mnemonic()
 		if err != nil {
 			return nil, err
@@ -48,18 +48,18 @@ func (nw bitcoin) createPrivateKey() (*btcutil.WIF, error) {
 		seed := sha256.Sum256([]byte(mnemonic))
 		privateKey, _ := btcec.PrivKeyFromBytes(seed[:])
 
-		return btcutil.NewWIF(privateKey, nw.getParams(), true)
+		return btcutil.NewWIF(privateKey, btc.getParams(), true)
 	}
 
 	secret, err := btcec.NewPrivateKey()
 	if err != nil {
 		return nil, err
 	}
-	return btcutil.NewWIF(secret, nw.getParams(), true)
+	return btcutil.NewWIF(secret, btc.getParams(), true)
 }
 
-func (nw bitcoin) getAddress(wif *btcutil.WIF) (*btcutil.AddressPubKey, error) {
-	return btcutil.NewAddressPubKey(wif.PrivKey.PubKey().SerializeCompressed(), nw.getParams())
+func (btc bitcoin) getAddress(wif *btcutil.WIF) (*btcutil.AddressPubKey, error) {
+	return btcutil.NewAddressPubKey(wif.PrivKey.PubKey().SerializeCompressed(), btc.getParams())
 }
 
 // generateBIP39Mnemonic generates a BIP39 mnemonic using the wordlist
@@ -79,27 +79,27 @@ func generateBIP39Mnemonic() (string, error) {
 }
 
 // GenerateKeys for btc, bip39
-func (nw bitcoin) GenerateKeys() (*KeyPair, error) {
-	if nw.name == "" {
+func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
+	if btc.name == "" {
 		return nil, errors.New("network not found")
 	}
 
-	privateKey, err := nw.createPrivateKey()
+	privateKey, err := btc.createPrivateKey()
 	if err != nil {
 		return nil, err
 	}
-	publicKey, err := nw.getAddress(privateKey)
+	publicKey, err := btc.getAddress(privateKey)
 	if err != nil {
 		return nil, err
 	}
 
 	k := new(KeyPair)
-	k.network = nw.name
+	k.network = btc.name
 	k.private = privateKey.String()
 	k.public = publicKey.EncodeAddress()
 
 	// Generate BIP39 mnemonic if applicable
-	if nw.bip39 {
+	if btc.bip39 {
 		mnemonic, err := generateBIP39Mnemonic()
 		if err != nil {
 			return nil, err

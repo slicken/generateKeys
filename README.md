@@ -1,13 +1,17 @@
 # generateKeys
-Simple app that generates self costodial wallet key pairs for Bitcoin (legacy), Bitcoin (BIP39), Ethereum, Solana<br>
-```
-me@pc:~$ ./generateKeys 
-GENERATE KEYS
-Usage: ./generateKeys [btc, bip39, eth, sol] (xoxo,or,other,to,must,include,in,public)
-```
-if you want generate ublic keys with specific word in it, you can.
-Example:
-```
+
+**generateKeys** is a simple application that generates self-custodial wallet key pairs for the following blockchains:
+
+- Bitcoin (legacy)
+- Bitcoin (BIP39)
+- Ethereum
+- Solana
+
+## Usage
+
+To run the application, use the following command:
+
+```bash
 me@pc:~$ ./generateKeys
 GENERATE KEY PAIRS for Bitcoin, Ethereum, and Solana
 Usage: ./app <network> [include]

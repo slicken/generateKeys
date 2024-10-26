@@ -27,7 +27,8 @@ Arguments:
                  eth, ethereum
                  sol, solana
 
-  [include]    (optional) A comma-separated list of characters or words that the public key should include.
+  [include]    (optional) A comma-separated list of characters
+               or words that the public key should include.
                Example: abcde,10000
 `, os.Args[0])
 	os.Exit(code)

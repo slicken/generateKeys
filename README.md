@@ -14,7 +14,7 @@ To run the application, use the following command:
 
 ```
 me@pc:~$ ./generateKeys
-Usage: %s <network> [include]
+Usage: generateKeys <network> [include]
 
 Generate key pairs for Bitcoin, Ethereum, and Solana.
 

@@ -11,25 +11,29 @@ type KeyPair struct {
 	network        string
 	public         string
 	private        string
+	p2shAddress    string
 	mnemonic       string
 	derivationPath string
 }
 
 func Usage(code int) {
-	fmt.Printf(`GENERATE KEY PAIRS for Bitcoin, Ethereum, and Solana
-Usage: %s <network> [include]
+	fmt.Printf(`Usage: %s <network> [include]
+
+Generate key pairs for Bitcoin, Ethereum, and Solana.
 
 Arguments:
   <network>    (required) Specifies the blockchain network.
                Options:
-                 btc, bitcoin
-                 btc39, bip39
-                 eth, ethereum
-                 sol, solana
+                 btc | bitcoin        Bitcoin
+                 btc39 | bip39        Bitcoin (BIP39)
+                 btcs | segwit        Bitcoin (SegWit)
+                 eth | ethereum       Ethereum
+                 sol | solana         Solana
 
-  [include]    (optional) A comma-separated list of characters
-               or words that the public key should include.
+  [include]    (optional) A comma-separated list of characters or words
+               that the public key should include.
                Example: abcde,10000
+
 `, os.Args[0])
 	os.Exit(code)
 }
@@ -38,6 +42,9 @@ Arguments:
 func (k KeyPair) Print() {
 	fmt.Printf("%-3s %-12s %s\n", k.network, "public", k.public)
 	fmt.Printf("%-3s %-12s %s\n", k.network, "private", k.private)
+	if k.p2shAddress != "" {
+		fmt.Printf("%-3s %-12s %s\n", k.network, "p2shAddress", k.p2shAddress)
+	}
 	if k.mnemonic != "" {
 		fmt.Printf("%-3s %-12s %s\n", k.network, "mnemonic", k.mnemonic)
 	}
@@ -62,6 +69,8 @@ func main() {
 		network = btcMap["btc"]
 	case "btc39", "bip39":
 		network = btcMap["bip39"]
+	case "btcs", "segwit":
+		network = btcMap["segwit"]
 	case "eth", "ethereum":
 		network = &ethereum{}
 	case "sol", "solana":
@@ -72,7 +81,7 @@ func main() {
 
 	// If we just want to generate a keypair
 	if len(os.Args) == 2 {
-		if os.Args[1] != "btc" && os.Args[1] != "bitcoin" && os.Args[1] != "btc39" && os.Args[1] != "bip39" &&
+		if os.Args[1] != "btc" && os.Args[1] != "bitcoin" && os.Args[1] != "btc39" && os.Args[1] != "bip39" && os.Args[1] != "btcs" && os.Args[1] != "segwit" &&
 			os.Args[1] != "eth" && os.Args[1] != "ethereum" && os.Args[1] != "sol" && os.Args[1] != "solana" {
 			Usage(1)
 		}

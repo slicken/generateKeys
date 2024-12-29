@@ -3,7 +3,9 @@
 **generateKeys** is a simple application that generates self-custodial wallet key pairs for the following blockchains:
 
 - Bitcoin (legacy)
-- Bitcoin (BIP39)
+- Bitcoin (SegWit)
+- Bitcoin (Native SegWit)
+- Bitcoin (Taproot) !! not implemented yet !!
 - Ethereum
 - Solana
 
@@ -11,24 +13,22 @@
 
 To run the application, use the following command:
 
-
 ```
 me@pc:~$ ./generateKeys
-Usage: generateKeys <network> [include]
+Usage: generateKeys <NETWORK> [OPTION]
 
 Generate key pairs for Bitcoin, Ethereum, and Solana.
 
-Arguments:
-  <network>    (required) Specifies the blockchain network.
-               Options:
-                 btc | bitcoin        Bitcoin
-                 btc39 | bip39        Bitcoin (BIP39)
-                 btcs | segwit        Bitcoin (SegWit)
-                 eth | ethereum       Ethereum
-                 sol | solana         Solana
+Network (required):
+  btc, legacy              Legacy (P2PKH): Oldest type, less efficient, higher fees.
+  btcs, segwit             SegWit (P2SH-wrapped P2WPKH): SegWit compatibility, lower fees.
+  btcn, native             Native SegWit (P2WPKH, Bech32): More efficient and secure, lower fees.
+  eth, ethereum            Ethereum.
+  sol, solana              Solana.
 
-  [include]    (optional) A comma-separated list of characters or words
-               that the public key should include.
-               Example: abcde,10000
-
+Option:
+  -m, --mnemonic           Prints mnemonic for the wallet.
+  -i, --include <include>  Include words in public key (comma-separated).
+                           Example: -i abcde,10000
+  -h, --help               Show this help message.
 ```

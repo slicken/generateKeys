@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -11,45 +12,43 @@ type KeyPair struct {
 	network        string
 	public         string
 	private        string
-	p2shAddress    string
 	mnemonic       string
 	derivationPath string
 }
 
-func Usage(code int) {
-	fmt.Printf(`Usage: %s <network> [include]
+//                 btct | taproot       Taproot (P2TR, Bech32m): Latest upgrade, enhanced privacy, improved efficiency, using Bech32m format.
+
+func Usage() {
+	fmt.Printf(`Usage: %s <NETWORK> [OPTION]
 
 Generate key pairs for Bitcoin, Ethereum, and Solana.
 
-Arguments:
-  <network>    (required) Specifies the blockchain network.
-               Options:
-                 btc | bitcoin        Bitcoin
-                 btc39 | bip39        Bitcoin (BIP39)
-                 btcs | segwit        Bitcoin (SegWit)
-                 eth | ethereum       Ethereum
-                 sol | solana         Solana
+Network (required):
+  btc, legacy              Legacy (P2PKH): Oldest type, less efficient, higher fees.
+  btcs, segwit             SegWit (P2SH-wrapped P2WPKH): SegWit compatibility, lower fees.
+  btcn, native             Native SegWit (P2WPKH, Bech32): More efficient and secure, lower fees.
+  eth, ethereum            Ethereum
+  sol, solana              Solana
 
-  [include]    (optional) A comma-separated list of characters or words
-               that the public key should include.
-               Example: abcde,10000
+Option:
+  -m, --mnemonic           Prints mnemonic for the wallet.
+  -i, --include <include>  Include words in public key (comma-separated).
+                           Example: -i abcde,10000
+  -h, --help               Show this help message.
 
 `, os.Args[0])
-	os.Exit(code)
+	os.Exit(1)
 }
 
 // Print to std.out
 func (k KeyPair) Print() {
 	fmt.Printf("%-3s %-12s %s\n", k.network, "public", k.public)
 	fmt.Printf("%-3s %-12s %s\n", k.network, "private", k.private)
-	if k.p2shAddress != "" {
-		fmt.Printf("%-3s %-12s %s\n", k.network, "p2shAddress", k.p2shAddress)
-	}
 	if k.mnemonic != "" {
 		fmt.Printf("%-3s %-12s %s\n", k.network, "mnemonic", k.mnemonic)
-	}
-	if k.derivationPath != "" {
-		fmt.Printf("%-3s %-12s %s\n", k.network, "derivation", k.derivationPath)
+		if k.derivationPath != "" {
+			fmt.Printf("%-3s %-12s %s\n", k.network, "derivation", k.derivationPath)
+		}
 	}
 }
 
@@ -58,78 +57,102 @@ type Network interface {
 	GenerateKeys() (*KeyPair, error)
 }
 
+var (
+	includeFlag      = flag.String("i", "", "A comma-separated list of characters or words that the public key should include.")
+	includeLongFlag  = flag.String("include", "", "A comma-separated list of characters or words that the public key should include.")
+	mnemonicFlag     = flag.Bool("m", false, "A boolean flag to generate and print a mnemonic.")
+	mnemonicLongFlag = flag.Bool("mnemonic", false, "A boolean flag to generate and print a mnemonic.")
+)
+
 func main() {
-	if len(os.Args) < 2 {
-		Usage(1)
+	flag.Usage = Usage
+
+	// Manually parse the arguments to separate the network argument from the flags
+	args := os.Args[1:]
+	var networkArg string
+	var flagArgs []string
+
+	for _, arg := range args {
+		switch strings.ToLower(arg) {
+		case "btc", "legacy", "btcs", "segwit", "btcn", "native", "eth", "ethereum", "sol", "solana":
+			networkArg = arg
+		default:
+			flagArgs = append(flagArgs, arg)
+		}
 	}
 
+	if networkArg == "" {
+		Usage()
+	}
+
+	flag.CommandLine.Parse(flagArgs)
+
 	var network Network
-	switch strings.ToLower(os.Args[1]) {
-	case "btc", "bitcoin":
-		network = btcMap["btc"]
-	case "btc39", "bip39":
-		network = btcMap["bip39"]
+
+	switch strings.ToLower(networkArg) {
+	case "btc", "legacy", "bitcoin":
+		network = btcMap["legacy"]
 	case "btcs", "segwit":
 		network = btcMap["segwit"]
+	case "btcn", "native":
+		network = btcMap["native"]
 	case "eth", "ethereum":
 		network = &ethereum{}
 	case "sol", "solana":
 		network = &solana{}
 	default:
-		log.Fatalf("%q not found\n", os.Args[1])
+		log.Fatalf("%q not found\n", networkArg)
 	}
 
-	// If we just want to generate a keypair
-	if len(os.Args) == 2 {
-		if os.Args[1] != "btc" && os.Args[1] != "bitcoin" && os.Args[1] != "btc39" && os.Args[1] != "bip39" && os.Args[1] != "btcs" && os.Args[1] != "segwit" &&
-			os.Args[1] != "eth" && os.Args[1] != "ethereum" && os.Args[1] != "sol" && os.Args[1] != "solana" {
-			Usage(1)
-		}
+	include := *includeFlag
+	if *includeLongFlag != "" {
+		include = *includeLongFlag
+	}
 
+	includeWords := strings.Split(include, ",")
+	if include != "" && len(includeWords) == 0 {
+		log.Fatalln("no words to include")
+	}
+
+	// If we just want to generate a keypair without include logic
+	if include == "" {
 		keyPair, err := network.GenerateKeys()
 		if err != nil {
-			log.Fatalln(os.Args[1], err)
+			log.Fatalln(networkArg, err)
 		}
 		keyPair.Print()
 		return
 	}
 
-	// Add logic for "include" command here
-	if len(os.Args) < 3 {
-		fmt.Println("GENERATE KEYS")
-		fmt.Println("Usage:", os.Args[0], "[btc, bip39, eth, sol] (xoxo,or,other,to,must,include,in,public)")
-		return
-	}
+	// If the -i or --include flag is present, generate keys and check for inclusion
+	fmt.Printf("Generating %s keys that includes %s\n", network.Name(), includeWords)
 
-	wordlist := strings.Split(os.Args[2], ",") //Split(os.Args[2])
-	if len(wordlist) == 0 {
-		log.Fatalln("no words to include")
-	}
-
-	fmt.Printf("Generating %s keys that includes %s\n", network.Name(), wordlist)
-
+	var count int
 	for {
 		keyPair, err := network.GenerateKeys()
 		if err != nil {
-			fmt.Println(os.Args[1], err)
+			fmt.Println(networkArg, err)
 			return
 		}
 
-		for _, word := range wordlist {
-			for i := 0; i < len(keyPair.public); i++ {
-				if keyPair.public[i] == word[0] {
-					match := true
-					for j := 1; j < len(word); j++ {
-						if i+j >= len(keyPair.public) || strings.ToLower(string(keyPair.public[i+j])) != string(word[j]) {
-							match = false
-							break
-						}
-					}
-					if match {
-						fmt.Printf("%25q included in public key below\n", word)
-						keyPair.Print()
-					}
+		matchFound := false
+		for _, word := range includeWords {
+			for i := 0; i < len(keyPair.public)-len(word)+1; i++ {
+				if strings.EqualFold(keyPair.public[i:i+len(word)], word) {
+					fmt.Printf("%25q included in public key below\n", word)
+					keyPair.Print()
+					matchFound = true
+					break
 				}
+			}
+			if matchFound {
+				break
+			}
+		}
+		if matchFound {
+			count++
+			if count > 10 {
+				break
 			}
 		}
 	}

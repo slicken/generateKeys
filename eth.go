@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/tyler-smith/go-bip39"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -17,13 +18,33 @@ func (eth ethereum) Name() string {
 
 // GenerateKeys for eth
 func (eth ethereum) GenerateKeys() (*KeyPair, error) {
-	privateKey, err := crypto.GenerateKey()
-	if err != nil {
-		log.Fatal(err)
+	var privateKey *ecdsa.PrivateKey
+	var mnemonic string
+	var err error
+
+	// If the mnemonic flag is set, generate mnemonic and derive the key pair
+	if *mnemonicFlag || *mnemonicLongFlag {
+		entropy, err := bip39.NewEntropy(256)
+		if err != nil {
+			return nil, err
+		}
+		mnemonic, err = bip39.NewMnemonic(entropy)
+		if err != nil {
+			return nil, err
+		}
+		seed := bip39.NewSeed(mnemonic, "")
+		privateKey, err = crypto.ToECDSA(seed[:32])
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		privateKey, err = crypto.GenerateKey()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	privateKeyBytes := crypto.FromECDSA(privateKey)
-	// fmt.Println(hexutil.Encode(privateKeyBytes)[2:]) // fad9c8855b740a0b7ed4c221dbad0f33a83a49cad6b3fe8d5817ac83d38b6a19
 
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
@@ -32,19 +53,17 @@ func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 	}
 
 	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
-	// fmt.Println(hexutil.Encode(publicKeyBytes)[4:]) // 9a7df67f79246283fdc93af76d4f8cdd62c4886e8cd870944e817dd0b97934fdd7719d0810951e03418205868a5c1b40b192451367f28e0088dd75e15de40c05
 
 	address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
 	_ = address
-	// fmt.Println(address) // 0x96216849c49358B10257cb55b28eA603c874b05E
 
 	hash := sha3.NewLegacyKeccak256()
 	hash.Write(publicKeyBytes[1:])
-	// fmt.Println(hexutil.Encode(hash.Sum(nil)[12:])) // 0x96216849c49358b10257cb55b28ea603c874b05e
 
 	return &KeyPair{
-		network: "ethereum",
-		private: hexutil.Encode(privateKeyBytes)[2:],
-		public:  hexutil.Encode(hash.Sum(nil)[12:]),
+		network:  "ethereum",
+		private:  hexutil.Encode(privateKeyBytes)[2:],
+		public:   hexutil.Encode(hash.Sum(nil)[12:]),
+		mnemonic: mnemonic,
 	}, nil
 }

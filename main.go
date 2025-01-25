@@ -33,6 +33,8 @@ Network (required):
 Option:
   -m, --mnemonic           Prints mnemonic for the wallet.
   -i, --include <include>  Include words in public key (comma-separated).
+      --prefix             Addon for include.
+      --postfix            Addon for include.
                            Example: -i abcde,10000
   -h, --help               Show this help message.
 
@@ -58,8 +60,11 @@ type Network interface {
 }
 
 var (
-	includeFlag      = flag.String("i", "", "A comma-separated list of characters or words that the public key should include.")
-	includeLongFlag  = flag.String("include", "", "A comma-separated list of characters or words that the public key should include.")
+	includeFlag     = flag.String("i", "", "A comma-separated list of characters or words that the public key should include.")
+	includeLongFlag = flag.String("include", "", "A comma-separated list of characters or words that the public key should include.")
+	preFlag         = flag.Bool("prefix", false, "Addon to include flag.")
+	postFlag        = flag.Bool("postfix", false, "Addon to include flag.")
+
 	mnemonicFlag     = flag.Bool("m", false, "A boolean flag to generate and print a mnemonic.")
 	mnemonicLongFlag = flag.Bool("mnemonic", false, "A boolean flag to generate and print a mnemonic.")
 )
@@ -135,25 +140,36 @@ func main() {
 			return
 		}
 
-		matchFound := false
 		for _, word := range includeWords {
-			for i := 0; i < len(keyPair.public)-len(word)+1; i++ {
-				if strings.EqualFold(keyPair.public[i:i+len(word)], word) {
-					fmt.Printf("%25q included in public key below\n", word)
+			if *preFlag {
+				if strings.EqualFold(keyPair.public[:len(word)], word) {
+					fmt.Printf("%25q included in prefix in public key below\n", word)
 					keyPair.Print()
-					matchFound = true
+					count++
 					break
 				}
 			}
-			if matchFound {
-				break
+			if *postFlag {
+				if strings.EqualFold(keyPair.public[len(keyPair.public)-len(word):], word) {
+					fmt.Printf("%25q included in postfix in public key below\n", word)
+					keyPair.Print()
+					count++
+					break
+				}
+			}
+			if !*preFlag && !*postFlag {
+				for i := 0; i < len(keyPair.public)-len(word)+1; i++ {
+					if strings.EqualFold(keyPair.public[i:i+len(word)], word) {
+						fmt.Printf("%25q included in public key below\n", word)
+						keyPair.Print()
+						count++
+						break
+					}
+				}
 			}
 		}
-		if matchFound {
-			count++
-			if count > 10 {
-				break
-			}
+		if count > 10 {
+			break
 		}
 	}
 }

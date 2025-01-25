@@ -29,6 +29,8 @@ Network (required):
 Option:
   -m, --mnemonic           Prints mnemonic for the wallet.
   -i, --include <include>  Include words in public key (comma-separated).
-                           Example: -i abcde,10000
+      --prefix             Addon for include.
+      --postfix            Addon for include.
+                           Example: -i abcde,10000 -postfix
   -h, --help               Show this help message.
 ```

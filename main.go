@@ -143,16 +143,18 @@ func main() {
 		for _, word := range includeWords {
 			if *preFlag {
 				if strings.EqualFold(keyPair.public[:len(word)], word) {
-					fmt.Printf("%25q included in prefix in public key below\n", word)
+					fmt.Printf("%22s included as prefix in public key below\n", word)
 					keyPair.Print()
+					fmt.Println("")
 					count++
 					break
 				}
 			}
 			if *postFlag {
 				if strings.EqualFold(keyPair.public[len(keyPair.public)-len(word):], word) {
-					fmt.Printf("%25q included in postfix in public key below\n", word)
+					fmt.Printf("%22s included as postfix in public key below\n", word)
 					keyPair.Print()
+					fmt.Println("")
 					count++
 					break
 				}
@@ -162,6 +164,7 @@ func main() {
 					if strings.EqualFold(keyPair.public[i:i+len(word)], word) {
 						fmt.Printf("%25q included in public key below\n", word)
 						keyPair.Print()
+						fmt.Println("")
 						count++
 						break
 					}

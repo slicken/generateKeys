@@ -21,7 +21,7 @@ func Usage() {
 
 Generate key pairs for Bitcoin, Ethereum, and Solana.
 
-Network (required):
+Network (required as first argument):
   btc, legacy              Legacy (P2PKH): Oldest type, less efficient, higher fees.
   btcs, segwit             SegWit (P2SH-wrapped P2WPKH): SegWit compatibility, lower fees.
   btcn, native             Native SegWit (P2WPKH, Bech32): More efficient and secure, lower fees.
@@ -35,7 +35,7 @@ Option:
       --postfix            Addon for include.
                            Example: -i abcde,10000
   --custom_mnemonic        Custom mnemonic. only for btc/btcs/btcn
-  --custom_path            Custom derrive path.
+  --custom_path            Custom derivation path.
 `, os.Args[0])
 	os.Exit(1)
 }
@@ -72,33 +72,34 @@ var (
 
 func main() {
 	flag.Usage = Usage
-	flag.Parse()
-
 	// Manually parse the arguments to separate the network argument from the flags
 	args := os.Args[1:]
 	var networkArg string
 	var flagArgs []string
 
 	for _, arg := range args {
-		switch strings.ToLower(arg) {
-		case "btc", "legacy", "btcs", "segwit", "btcn", "native", "eth", "ethereum", "sol", "solana":
-			networkArg = arg
-		default:
+		if !strings.HasPrefix(arg, "-") && networkArg == "" {
+			networkArg = arg // Assume the first non-flag argument is the network
+		} else {
 			flagArgs = append(flagArgs, arg)
 		}
 	}
 
+	// Validate network argument
 	if networkArg == "" {
 		Usage()
 	}
 
+	// Rebuild os.Args for flags parsing
+	os.Args = append([]string{os.Args[0]}, flagArgs...)
+	flag.Parse()
+
 	// Assign custom values
 	customMnemonic = *customMnemonicFlag
 	customPath = *customPathFlag
-	flag.CommandLine.Parse(flagArgs)
 
+	// Proceed with the rest of the program
 	var network Network
-
 	switch strings.ToLower(networkArg) {
 	case "btc", "legacy", "bitcoin":
 		network = btcMap["legacy"]

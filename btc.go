@@ -59,6 +59,7 @@ func (btc bitcoin) createPrivateKey() (*btcutil.WIF, error) {
 func (btc bitcoin) getAddress(wif *btcutil.WIF) (btcutil.Address, error) {
 	pubKey := wif.PrivKey.PubKey()
 
+	// Generate Native Segwit (starts with 'bc1')
 	if btc.isNative {
 		addr, err := btcutil.NewAddressWitnessPubKeyHash(btcutil.Hash160(pubKey.SerializeCompressed()), btc.getParams())
 		if err != nil {
@@ -67,6 +68,7 @@ func (btc bitcoin) getAddress(wif *btcutil.WIF) (btcutil.Address, error) {
 		return addr, nil
 	}
 
+	// Generate Segwit integrated withness (starts with '3')
 	if btc.isSegWit {
 		addr, err := btcutil.NewAddressScriptHash(btcutil.Hash160(pubKey.SerializeCompressed()), btc.getParams())
 		if err != nil {
@@ -83,7 +85,6 @@ func (btc bitcoin) getAddress(wif *btcutil.WIF) (btcutil.Address, error) {
 	return addr, nil
 }
 
-// GenerateKeys generates a keypair, including the address based on the network type (SegWit, Native SegWit, or legacy)
 func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 	if btc.name == "" {
 		return nil, errors.New("network not found")
@@ -93,8 +94,19 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 	var mnemonic string
 	var err error
 
-	// If the mnemonic flag is set, generate mnemonic and derive the key pair
-	if *mnemonicFlag || *mnemonicLongFlag {
+	// If a custom mnemonic is provided, use it
+	if customMnemonic != "" {
+		mnemonic = customMnemonic
+		// Generate seed from the custom mnemonic
+		seed := bip39.NewSeed(mnemonic, "")
+		secret, _ := btcec.PrivKeyFromBytes(seed[:32])
+		privateKey, err = btcutil.NewWIF(secret, btc.getParams(), true)
+		if err != nil {
+			return nil, err
+		}
+		// fmt.Printf("Using custom mnemonic: %s\n", mnemonic) // Print the custom mnemonic being used
+	} else if *infoFlag || *infoLongFlag {
+		// If mnemonic flag is used, generate a random mnemonic
 		entropy, err := bip39.NewEntropy(256)
 		if err != nil {
 			return nil, err
@@ -110,10 +122,17 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 			return nil, err
 		}
 	} else {
+		// If no mnemonic flag is used, generate a new private key
 		privateKey, err = btc.createPrivateKey()
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Apply the custom derivation path if it's provided
+	if customPath != "" {
+		btc.derivationPath = customPath
+		// fmt.Printf("Using custom derivation path: %s\n", customPath) // Print the custom derivation path being used
 	}
 
 	address, err := btc.getAddress(privateKey)

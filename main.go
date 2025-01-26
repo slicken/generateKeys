@@ -16,8 +16,6 @@ type KeyPair struct {
 	derivationPath string
 }
 
-//                 btct | taproot       Taproot (P2TR, Bech32m): Latest upgrade, enhanced privacy, improved efficiency, using Bech32m format.
-
 func Usage() {
 	fmt.Printf(`Usage: %s <NETWORK> [OPTION]
 
@@ -31,13 +29,13 @@ Network (required):
   sol, solana              Solana
 
 Option:
-  -m, --mnemonic           Prints mnemonic for the wallet.
+  -a, --all                Prints mnemonic and derivation path.
   -i, --include <include>  Include words in public key (comma-separated).
       --prefix             Addon for include.
       --postfix            Addon for include.
                            Example: -i abcde,10000
-  -h, --help               Show this help message.
-
+  --custom_mnemonic        Custom mnemonic. only for btc/btcs/btcn
+  --custom_path            Custom derrive path.
 `, os.Args[0])
 	os.Exit(1)
 }
@@ -60,17 +58,21 @@ type Network interface {
 }
 
 var (
-	includeFlag     = flag.String("i", "", "A comma-separated list of characters or words that the public key should include.")
-	includeLongFlag = flag.String("include", "", "A comma-separated list of characters or words that the public key should include.")
-	preFlag         = flag.Bool("prefix", false, "Addon to include flag.")
-	postFlag        = flag.Bool("postfix", false, "Addon to include flag.")
-
-	mnemonicFlag     = flag.Bool("m", false, "A boolean flag to generate and print a mnemonic.")
-	mnemonicLongFlag = flag.Bool("mnemonic", false, "A boolean flag to generate and print a mnemonic.")
+	includeFlag        = flag.String("i", "", "A comma-separated list of characters or words that the public key should include.")
+	includeLongFlag    = flag.String("include", "", "A comma-separated list of characters or words that the public key should include.")
+	preFlag            = flag.Bool("prefix", false, "Addon to include flag.")
+	postFlag           = flag.Bool("postfix", false, "Addon to include flag.")
+	infoFlag           = flag.Bool("a", false, "A boolean flag to generate and print a mnemonic.")
+	infoLongFlag       = flag.Bool("all", false, "A boolean flag to generate and print a mnemonic.")
+	customMnemonicFlag = flag.String("custom_mnemonic", "", "Custom mnemonic phrase for key generation.")
+	customPathFlag     = flag.String("custom_path", "", "Custom derivation path for key generation.")
+	customMnemonic     string
+	customPath         string
 )
 
 func main() {
 	flag.Usage = Usage
+	flag.Parse()
 
 	// Manually parse the arguments to separate the network argument from the flags
 	args := os.Args[1:]
@@ -90,6 +92,9 @@ func main() {
 		Usage()
 	}
 
+	// Assign custom values
+	customMnemonic = *customMnemonicFlag
+	customPath = *customPathFlag
 	flag.CommandLine.Parse(flagArgs)
 
 	var network Network
@@ -130,7 +135,7 @@ func main() {
 	}
 
 	// If the -i or --include flag is present, generate keys and check for inclusion
-	fmt.Printf("Generating %s keys that includes %s\n", network.Name(), includeWords)
+	fmt.Printf("Generating %s keys that include %s\n", network.Name(), includeWords)
 
 	var count int
 	for {

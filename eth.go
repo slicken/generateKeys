@@ -23,7 +23,7 @@ func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 	var err error
 
 	// If the mnemonic flag is set, generate mnemonic and derive the key pair
-	if *mnemonicFlag || *mnemonicLongFlag {
+	if *infoFlag || *infoLongFlag {
 		entropy, err := bip39.NewEntropy(256)
 		if err != nil {
 			return nil, err

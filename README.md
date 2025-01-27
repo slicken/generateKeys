@@ -31,6 +31,6 @@ Option:
   -i, --include <include>  Include words in public key (comma-separated).
       --prefix             Addon for include.
       --postfix            Addon for include.
-                           Example: -i abcde,10000 -postfix
+                           Example: generateKeys btcn -i abcde,10000 --postfix
   -h, --help               Show this help message.
 ```

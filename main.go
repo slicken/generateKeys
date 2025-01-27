@@ -23,8 +23,8 @@ Generate key pairs for Bitcoin, Ethereum, and Solana.
 
 Network (required as first argument):
   btc, legacy              Legacy (P2PKH): Oldest type, less efficient, higher fees.
-  btcs, segwit             SegWit (P2SH-wrapped P2WPKH): SegWit compatibility, lower fees.
   btcn, native             Native SegWit (P2WPKH, Bech32): More efficient and secure, lower fees.
+  btcs, segwit             SegWit (P2SH-wrapped P2WPKH): SegWit compatibility, lower fees.
   eth, ethereum            Ethereum
   sol, solana              Solana
 

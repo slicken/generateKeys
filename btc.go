@@ -131,9 +131,8 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 		}
 	}
 
-	// Apply the custom derivation path if it's provided
+	// If custom path is provided, set the derivation path accordingly
 	if customPath != "" {
-		// Use the custom path directly
 		btc.derivationPath = customPath
 	}
 
@@ -193,7 +192,7 @@ func (btc bitcoin) deriveChildKey(parentKey *btcutil.WIF, path string) (*btcutil
 			index += 0x80000000
 		}
 
-		// Derive the child key at this index manually (using the package's Derive method if available)
+		// Derive the child key at this index manually
 		masterKey, err = masterKey.NewChildKey(uint32(index))
 		if err != nil {
 			return nil, fmt.Errorf("error deriving child key: %v", err)

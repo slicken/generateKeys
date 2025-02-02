@@ -27,10 +27,11 @@ Network (required):
   sol, solana              Solana.
 
 Option:
-  -m, --mnemonic           Prints mnemonic for the wallet.
+  -a, --all                Prints mnemonic and derivation path.
   -i, --include <include>  Include words in public key (comma-separated).
       --prefix             Addon for include.
       --postfix            Addon for include.
-                           Example: generateKeys btcn -i abcde,10000 --postfix
-  -h, --help               Show this help message.
+                           Example: -i abcde,10000
+  --custom_mnemonic        Custom mnemonic. only for btc/btcs/btcn
+  --custom_path            Custom derivation path.
 ```

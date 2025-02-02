@@ -29,7 +29,7 @@ func (btc bitcoin) Name() string {
 var btcMap = map[string]bitcoin{
 	"legacy": {name: "bitcoin legacy", xpub: 0x00, xpriv: 0x80, isSegWit: false, isNative: false, derivationPath: "m/44'/0'/0'/0/0"},
 	"segwit": {name: "bitcoin segwit", xpub: 0x05, xpriv: 0x80, isSegWit: true, isNative: false, derivationPath: "m/49'/0'/0'/0/0"},
-	"native": {name: "bitcoin native", xpub: 0x05, xpriv: 0x80, isSegWit: true, isNative: true, derivationPath: "m/84'/0'/0'/0/0"},
+	"native": {name: "bitcoin native", xpub: 0x04, xpriv: 0x80, isSegWit: true, isNative: true, derivationPath: "m/84'/0'/0'/0/0"},
 }
 
 func (btc bitcoin) getParams() *chaincfg.Params {
@@ -38,7 +38,7 @@ func (btc bitcoin) getParams() *chaincfg.Params {
 		if btc.isNative {
 			param.Bech32HRPSegwit = "bc" // Native SegWit Bech32 address prefix (mainnet)
 		} else {
-			param.PubKeyHashAddrID = 0x00 // SegWit P2SH address prefix (mainnet)
+			param.PubKeyHashAddrID = 0x05 // SegWit P2SH address prefix (mainnet)
 		}
 		param.PrivateKeyID = 0x80 // SegWit private key prefix (mainnet)
 	} else {
@@ -102,11 +102,32 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 		mnemonic = customMnemonic
 		// Generate seed from the custom mnemonic
 		seed := bip39.NewSeed(mnemonic, "")
-		secret, _ := btcec.PrivKeyFromBytes(seed[:32])
-		privateKey, err = btcutil.NewWIF(secret, btc.getParams(), true)
+		masterKey, err := bip32.NewMasterKey(seed)
 		if err != nil {
 			return nil, err
 		}
+
+		// If a custom derivation path is provided, use it
+		derivationPath := btc.derivationPath
+		if customPath != "" {
+			derivationPath = customPath
+		}
+
+		// Derive the child key using the specified path
+		childKey, err := btc.deriveChildKeyFromMaster(masterKey, derivationPath)
+		if err != nil {
+			return nil, err
+		}
+
+		// Convert the child key to WIF
+		privKey, _ := btcec.PrivKeyFromBytes(childKey.Key)
+		privateKey, err = btcutil.NewWIF(privKey, btc.getParams(), true)
+		if err != nil {
+			return nil, err
+		}
+
+		// Update the derivation path in the KeyPair
+		btc.derivationPath = derivationPath
 	} else if *infoFlag || *infoLongFlag {
 		// If mnemonic flag is used, generate a random mnemonic
 		entropy, err := bip39.NewEntropy(256)
@@ -118,8 +139,20 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 			return nil, err
 		}
 		seed := bip39.NewSeed(mnemonic, "")
-		secret, _ := btcec.PrivKeyFromBytes(seed[:32])
-		privateKey, err = btcutil.NewWIF(secret, btc.getParams(), true)
+		masterKey, err := bip32.NewMasterKey(seed)
+		if err != nil {
+			return nil, err
+		}
+
+		// Derive the child key using the default derivation path
+		childKey, err := btc.deriveChildKeyFromMaster(masterKey, btc.derivationPath)
+		if err != nil {
+			return nil, err
+		}
+
+		// Convert the child key to WIF
+		privKey, _ := btcec.PrivKeyFromBytes(childKey.Key)
+		privateKey, err = btcutil.NewWIF(privKey, btc.getParams(), true)
 		if err != nil {
 			return nil, err
 		}
@@ -131,25 +164,15 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 		}
 	}
 
-	// If custom path is provided, set the derivation path accordingly
-	if customPath != "" {
-		btc.derivationPath = customPath
-	}
-
-	// Derive child key using the updated derivation path
-	childKey, err := btc.deriveChildKey(privateKey, btc.derivationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	address, err := btc.getAddress(childKey)
+	// Derive the address from the private key
+	address, err := btc.getAddress(privateKey)
 	if err != nil {
 		return nil, err
 	}
 
 	k := new(KeyPair)
 	k.network = btc.name
-	k.private = childKey.String()
+	k.private = privateKey.String()
 	k.public = address.EncodeAddress()
 	k.mnemonic = mnemonic
 	k.derivationPath = btc.derivationPath
@@ -157,22 +180,14 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 	return k, nil
 }
 
-func (btc bitcoin) deriveChildKey(parentKey *btcutil.WIF, path string) (*btcutil.WIF, error) {
+func (btc bitcoin) deriveChildKeyFromMaster(masterKey *bip32.Key, path string) (*bip32.Key, error) {
 	// Split the derivation path into components
 	components := strings.Split(path, "/")
 	// Remove the first "m" part of the path
 	components = components[1:]
 
-	// Convert the WIF private key to the raw private key
-	privKeyBytes := parentKey.PrivKey.Serialize()
-
-	// Create the master key from the raw private key
-	masterKey, err := bip32.NewMasterKey(privKeyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("error creating master key: %v", err)
-	}
-
 	// Iterate through the path components and derive child keys
+	currentKey := masterKey
 	for _, component := range components {
 		// Check if the component is hardened (ends with a single quote)
 		hardened := false
@@ -192,17 +207,12 @@ func (btc bitcoin) deriveChildKey(parentKey *btcutil.WIF, path string) (*btcutil
 			index += 0x80000000
 		}
 
-		// Derive the child key at this index manually
-		masterKey, err = masterKey.NewChildKey(uint32(index))
+		// Derive the child key at this index
+		currentKey, err = currentKey.NewChildKey(uint32(index))
 		if err != nil {
 			return nil, fmt.Errorf("error deriving child key: %v", err)
 		}
 	}
 
-	// Return the new WIF for the derived key
-	secret := masterKey.Key
-
-	// Convert the private key bytes into the correct format
-	privKey, _ := btcec.PrivKeyFromBytes(secret)
-	return btcutil.NewWIF(privKey, btc.getParams(), true)
+	return currentKey, nil
 }

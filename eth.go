@@ -2,10 +2,14 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/tyler-smith/go-bip32"
 	"github.com/tyler-smith/go-bip39"
 	"golang.org/x/crypto/sha3"
 )
@@ -16,24 +20,87 @@ func (eth ethereum) Name() string {
 	return "Ethereum"
 }
 
+// parseDerivationPath parses a BIP-44 derivation path string into a slice of uint32 segments.
+func parseDerivationPath(path string) ([]uint32, error) {
+	segments := strings.Split(path, "/")
+	if len(segments) < 2 || segments[0] != "m" {
+		return nil, fmt.Errorf("invalid derivation path: %s", path)
+	}
+
+	var result []uint32
+	for _, segment := range segments[1:] {
+		// Handle hardened segments (e.g., 44')
+		hardened := strings.HasSuffix(segment, "'")
+		segment = strings.TrimSuffix(segment, "'")
+
+		index, err := strconv.Atoi(segment)
+		if err != nil {
+			return nil, fmt.Errorf("invalid segment in derivation path: %s", segment)
+		}
+
+		if hardened {
+			index += 0x80000000 // Add hardened flag
+		}
+
+		result = append(result, uint32(index))
+	}
+
+	return result, nil
+}
+
 // GenerateKeys for eth
 func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 	var privateKey *ecdsa.PrivateKey
 	var mnemonic string
+	var derivationPath string
 	var err error
 
 	// If the mnemonic flag is set, generate mnemonic and derive the key pair
-	if *infoFlag || *infoLongFlag {
-		entropy, err := bip39.NewEntropy(256)
-		if err != nil {
-			return nil, err
+	if *infoFlag || *infoLongFlag || customMnemonic != "" {
+		if customMnemonic != "" {
+			mnemonic = customMnemonic
+		} else {
+			entropy, err := bip39.NewEntropy(256)
+			if err != nil {
+				return nil, err
+			}
+			mnemonic, err = bip39.NewMnemonic(entropy)
+			if err != nil {
+				return nil, err
+			}
 		}
-		mnemonic, err = bip39.NewMnemonic(entropy)
-		if err != nil {
-			return nil, err
-		}
+
 		seed := bip39.NewSeed(mnemonic, "")
-		privateKey, err = crypto.ToECDSA(seed[:32])
+
+		// Derive the master key
+		masterKey, err := bip32.NewMasterKey(seed)
+		if err != nil {
+			return nil, err
+		}
+
+		// Default BIP-44 path for Ethereum: m/44'/60'/0'/0/0
+		defaultPath := []uint32{0x80000000 + 44, 0x80000000 + 60, 0x80000000 + 0, 0, 0}
+		derivationPath = "m/44'/60'/0'/0/0"
+
+		// If a custom derivation path is provided, use it
+		if customPath != "" {
+			defaultPath, err = parseDerivationPath(customPath)
+			if err != nil {
+				return nil, err
+			}
+			derivationPath = customPath
+		}
+
+		// Derive the key using the specified path
+		childKey := masterKey
+		for _, segment := range defaultPath {
+			childKey, err = childKey.NewChildKey(segment)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		privateKey, err = crypto.ToECDSA(childKey.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -54,16 +121,14 @@ func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 
 	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
 
-	address := crypto.PubkeyToAddress(*publicKeyECDSA).Hex()
-	_ = address
-
 	hash := sha3.NewLegacyKeccak256()
 	hash.Write(publicKeyBytes[1:])
 
 	return &KeyPair{
-		network:  "ethereum",
-		private:  hexutil.Encode(privateKeyBytes)[2:],
-		public:   hexutil.Encode(hash.Sum(nil)[12:]),
-		mnemonic: mnemonic,
+		network:        "ethereum",
+		private:        hexutil.Encode(privateKeyBytes)[2:],
+		public:         hexutil.Encode(hash.Sum(nil)[12:]),
+		mnemonic:       mnemonic,
+		derivationPath: derivationPath,
 	}, nil
 }

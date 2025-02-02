@@ -25,6 +25,7 @@ Network (required as first argument):
   btc, legacy              Legacy (P2PKH): Oldest type, less efficient, higher fees.
   btcn, native             Native SegWit (P2WPKH, Bech32): More efficient and secure, lower fees.
   btcs, segwit             SegWit (P2SH-wrapped P2WPKH): SegWit compatibility, lower fees.
+  btct, taproot            Taproot (P2TR): Latest Bitcoin upgrade, more privacy and efficiency.
   eth, ethereum            Ethereum
   sol, solana              Solana
 
@@ -34,8 +35,8 @@ Option:
       --prefix             Addon for include.
       --postfix            Addon for include.
                            Example: -i abcde,10000
-  --custom_mnemonic        Custom mnemonic. only for btc/btcs/btcn
-  --custom_path            Custom derivation path.
+  --custom_mnemonic        Use custom mnemonic.
+  --custom_path            Use custom derivation path.
 `, os.Args[0])
 	os.Exit(1)
 }
@@ -107,6 +108,8 @@ func main() {
 		network = btcMap["segwit"]
 	case "btcn", "native":
 		network = btcMap["native"]
+	case "btct", "taproot":
+		network = btcMap["taproot"]
 	case "eth", "ethereum":
 		network = &ethereum{}
 	case "sol", "solana":

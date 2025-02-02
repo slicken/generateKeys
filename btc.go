@@ -9,6 +9,7 @@ import (
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/txscript"
 	"github.com/tyler-smith/go-bip32"
 	"github.com/tyler-smith/go-bip39"
 )
@@ -19,6 +20,7 @@ type bitcoin struct {
 	xpriv          byte
 	isSegWit       bool
 	isNative       bool
+	isTaproot      bool
 	derivationPath string
 }
 
@@ -27,9 +29,10 @@ func (btc bitcoin) Name() string {
 }
 
 var btcMap = map[string]bitcoin{
-	"legacy": {name: "bitcoin legacy", xpub: 0x00, xpriv: 0x80, isSegWit: false, isNative: false, derivationPath: "m/44'/0'/0'/0/0"},
-	"segwit": {name: "bitcoin segwit", xpub: 0x05, xpriv: 0x80, isSegWit: true, isNative: false, derivationPath: "m/49'/0'/0'/0/0"},
-	"native": {name: "bitcoin native", xpub: 0x04, xpriv: 0x80, isSegWit: true, isNative: true, derivationPath: "m/84'/0'/0'/0/0"},
+	"legacy":  {name: "bitcoin legacy", xpub: 0x00, xpriv: 0x80, isSegWit: false, isNative: false, isTaproot: false, derivationPath: "m/44'/0'/0'/0/0"},
+	"segwit":  {name: "bitcoin segwit", xpub: 0x05, xpriv: 0x80, isSegWit: true, isNative: false, isTaproot: false, derivationPath: "m/49'/0'/0'/0/0"},
+	"native":  {name: "bitcoin native", xpub: 0x04, xpriv: 0x80, isSegWit: true, isNative: true, isTaproot: false, derivationPath: "m/84'/0'/0'/0/0"},
+	"taproot": {name: "bitcoin taproot", xpub: 0x04, xpriv: 0x80, isSegWit: true, isNative: true, isTaproot: true, derivationPath: "m/86'/0'/0'/0/0"},
 }
 
 func (btc bitcoin) getParams() *chaincfg.Params {
@@ -61,6 +64,20 @@ func (btc bitcoin) createPrivateKey() (*btcutil.WIF, error) {
 
 func (btc bitcoin) getAddress(wif *btcutil.WIF) (btcutil.Address, error) {
 	pubKey := wif.PrivKey.PubKey()
+
+	// Generate Taproot address (starts with 'bc1p')
+	if btc.isTaproot {
+		// Compute the Taproot output key
+		taprootKey := txscript.ComputeTaprootKeyNoScript(pubKey)
+		// Extract the x-coordinate of the public key (32 bytes)
+		taprootKeyBytes := taprootKey.X().Bytes()
+		// Create the Taproot address
+		addr, err := btcutil.NewAddressTaproot(taprootKeyBytes, btc.getParams())
+		if err != nil {
+			return nil, err
+		}
+		return addr, nil
+	}
 
 	// Generate Native Segwit (starts with 'bc1')
 	if btc.isNative {

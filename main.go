@@ -1,4 +1,5 @@
 package main
+
 // 114 tmp disabled
 import (
 	"flag"
@@ -111,7 +112,7 @@ func main() {
 	case "btct", "taproot":
 		network = btcMap["taproot"]
 	case "eth", "ethereum":
-//		network = &ethereum{}
+		network = &ethereum{}
 	case "sol", "solana":
 		network = &solana{}
 	default:

@@ -114,8 +114,26 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 	var mnemonic string
 	var err error
 
-	// If a custom mnemonic is provided, use it
-	if customMnemonic != "" {
+	// Check for custom private key first
+	if customPrivate != "" {
+		// Decode WIF private key
+		privateKey, err = btcutil.DecodeWIF(customPrivate)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode WIF private key: %v", err)
+		}
+
+		// Validate network parameters
+		if !privateKey.IsForNet(btc.getParams()) {
+			return nil, fmt.Errorf("private key is not for mainnet")
+		}
+
+		// If -a/--all flag is set, we should try to derive the mnemonic
+		if *infoFlag || *infoLongFlag {
+			// Note: We can't derive mnemonic from private key
+			mnemonic = "(cannot derive mnemonic from private key)"
+			btc.derivationPath = "(cannot derive path from private key)"
+		}
+	} else if customMnemonic != "" {
 		mnemonic = customMnemonic
 		// Generate seed from the custom mnemonic
 		seed := bip39.NewSeed(mnemonic, "")
@@ -174,7 +192,7 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 			return nil, err
 		}
 	} else {
-		// If no mnemonic flag is used, generate a new private key
+		// Generate a new private key if no custom options are provided
 		privateKey, err = btc.createPrivateKey()
 		if err != nil {
 			return nil, err
@@ -191,8 +209,11 @@ func (btc bitcoin) GenerateKeys() (*KeyPair, error) {
 	k.network = btc.name
 	k.private = privateKey.String()
 	k.public = address.EncodeAddress()
-	k.mnemonic = mnemonic
-	k.derivationPath = btc.derivationPath
+	// Only include mnemonic and path if -a/--all is set
+	if *infoFlag || *infoLongFlag {
+		k.mnemonic = mnemonic
+		k.derivationPath = btc.derivationPath
+	}
 
 	return k, nil
 }
@@ -232,30 +253,4 @@ func (btc bitcoin) deriveChildKeyFromMaster(masterKey *bip32.Key, path string) (
 	}
 
 	return currentKey, nil
-}
-
-// Add this method after the existing GenerateKeys() function
-func (btc bitcoin) GenerateFromPrivateKey(privateKeyWIF string) (*KeyPair, error) {
-	// Decode WIF private key
-	wif, err := btcutil.DecodeWIF(privateKeyWIF)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode WIF private key: %v", err)
-	}
-
-	// Validate network parameters
-	if !wif.IsForNet(btc.getParams()) {
-		return nil, fmt.Errorf("private key is not for mainnet")
-	}
-
-	// Generate address from the private key
-	address, err := btc.getAddress(wif)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate address: %v", err)
-	}
-
-	return &KeyPair{
-		network: btc.name,
-		private: wif.String(),
-		public:  address.EncodeAddress(),
-	}, nil
 }

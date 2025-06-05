@@ -58,7 +58,6 @@ func (k KeyPair) Print() {
 type Network interface {
 	Name() string
 	GenerateKeys() (*KeyPair, error)
-	GenerateFromPrivateKey(privateKey string) (*KeyPair, error)
 }
 
 var (
@@ -136,15 +135,7 @@ func main() {
 
 	// If we just want to generate a keypair without include logic
 	if include == "" {
-		var keyPair *KeyPair
-		var err error
-
-		if customPrivate != "" {
-			keyPair, err = network.GenerateFromPrivateKey(customPrivate)
-		} else {
-			keyPair, err = network.GenerateKeys()
-		}
-
+		keyPair, err := network.GenerateKeys()
 		if err != nil {
 			log.Fatalln(networkArg, err)
 		}
@@ -152,20 +143,10 @@ func main() {
 		return
 	}
 
-	// If the -i or --include flag is present, generate keys and check for inclusion
-	fmt.Printf("Generating %s keys that include %s\n", network.Name(), includeWords)
-
-	var count int
+	// For the include/vanity address generation loop
+	count := 0
 	for {
-		var keyPair *KeyPair
-		var err error
-
-		if customPrivate != "" {
-			keyPair, err = network.GenerateFromPrivateKey(customPrivate)
-		} else {
-			keyPair, err = network.GenerateKeys()
-		}
-
+		keyPair, err := network.GenerateKeys()
 		if err != nil {
 			fmt.Println(networkArg, err)
 			return

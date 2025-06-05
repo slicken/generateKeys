@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -55,8 +54,31 @@ func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 	var derivationPath string
 	var err error
 
-	// If the mnemonic flag is set, generate mnemonic and derive the key pair
-	if *infoFlag || *infoLongFlag || customMnemonic != "" {
+	// Check for custom private key first
+	if customPrivate != "" {
+		// Remove "0x" prefix if present
+		privateKeyHex := strings.TrimPrefix(customPrivate, "0x")
+
+		// Decode hex private key
+		privateKeyBytes, err := hexutil.Decode("0x" + privateKeyHex)
+		if err != nil {
+			return nil, fmt.Errorf("invalid private key format: %v", err)
+		}
+
+		// Create private key
+		privateKey, err = crypto.ToECDSA(privateKeyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("invalid private key: %v", err)
+		}
+
+		// If -a/--all flag is set, add placeholder messages
+		if *infoFlag || *infoLongFlag {
+			mnemonic = "(cannot derive mnemonic from private key)"
+			derivationPath = "(cannot derive path from private key)"
+		}
+
+	} else if *infoFlag || *infoLongFlag || customMnemonic != "" {
+		// If the mnemonic flag is set, generate mnemonic and derive the key pair
 		if customMnemonic != "" {
 			mnemonic = customMnemonic
 		} else {
@@ -105,21 +127,22 @@ func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 			return nil, err
 		}
 	} else {
+		// Generate a new random key if no custom options
 		privateKey, err = crypto.GenerateKey()
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 	}
 
-	privateKeyBytes := crypto.FromECDSA(privateKey)
-
+	// Generate public key and address
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
-		log.Fatal("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+		return nil, fmt.Errorf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
 	}
 
 	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
+	privateKeyBytes := crypto.FromECDSA(privateKey)
 
 	hash := sha3.NewLegacyKeccak256()
 	hash.Write(publicKeyBytes[1:])
@@ -130,43 +153,5 @@ func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 		public:         hexutil.Encode(hash.Sum(nil)[12:]),
 		mnemonic:       mnemonic,
 		derivationPath: derivationPath,
-	}, nil
-}
-
-// GenerateFromPrivateKey generates the key pair from the provided private key hex string.
-func (eth ethereum) GenerateFromPrivateKey(privateKeyHex string) (*KeyPair, error) {
-	// Remove "0x" prefix if present
-	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
-
-	// Decode hex private key
-	privateKeyBytes, err := hexutil.Decode("0x" + privateKeyHex)
-	if err != nil {
-		return nil, fmt.Errorf("invalid private key format: %v", err)
-	}
-
-	// Create private key
-	privateKey, err := crypto.ToECDSA(privateKeyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("invalid private key: %v", err)
-	}
-
-	// Generate public key
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
-	}
-
-	// Get public key bytes
-	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
-
-	// Generate Ethereum address
-	hash := sha3.NewLegacyKeccak256()
-	hash.Write(publicKeyBytes[1:])
-
-	return &KeyPair{
-		network: "ethereum",
-		private: privateKeyHex,
-		public:  hexutil.Encode(hash.Sum(nil)[12:]),
 	}, nil
 }

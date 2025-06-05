@@ -21,10 +21,29 @@ func (sol solana) Name() string {
 func (sol solana) GenerateKeys() (*KeyPair, error) {
 	var wallet types.Account
 	var mnemonic string
+	var derivationPath string
 	var err error
 
-	// Check if a custom mnemonic is provided
-	if customMnemonic != "" {
+	// Check for custom private key first
+	if customPrivate != "" {
+		// Decode base58 private key
+		privateKeyBytes := base58.Decode(customPrivate)
+		if len(privateKeyBytes) != 64 {
+			return nil, fmt.Errorf("invalid private key length: expected 64 bytes")
+		}
+
+		// Create Solana account from private key
+		wallet, err = types.AccountFromBytes(privateKeyBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create account from private key: %v", err)
+		}
+
+		// If -a/--all flag is set, add placeholder messages
+		if *infoFlag || *infoLongFlag {
+			mnemonic = "(cannot derive mnemonic from private key)"
+			derivationPath = "(cannot derive path from private key)"
+		}
+	} else if customMnemonic != "" {
 		// Validate the mnemonic
 		if !bip39.IsMnemonicValid(customMnemonic) {
 			return nil, fmt.Errorf("invalid mnemonic phrase")
@@ -32,64 +51,70 @@ func (sol solana) GenerateKeys() (*KeyPair, error) {
 
 		// Use the custom mnemonic
 		mnemonic = customMnemonic
-	} else {
-		// Generate a new mnemonic if no custom mnemonic is provided and -a/--all is set
-		if *infoFlag || *infoLongFlag {
-			entropy, err := bip39.NewEntropy(128) // 128 bits of entropy for a 12-word mnemonic
-			if err != nil {
-				return nil, fmt.Errorf("failed to generate entropy: %v", err)
-			}
 
-			mnemonic, err = bip39.NewMnemonic(entropy)
-			if err != nil {
-				return nil, fmt.Errorf("failed to generate mnemonic: %v", err)
-			}
-		} else {
-			// Generate a new wallet with a random mnemonic (not exposed unless -a/--all is set)
-			wallet = types.NewAccount()
-			return &KeyPair{
-				network:  "solana",
-				private:  base58.Encode(wallet.PrivateKey),
-				public:   wallet.PublicKey.ToBase58(),
-				mnemonic: "", // No mnemonic unless -a/--all is set
-			}, nil
+		// Generate seed from mnemonic
+		seed := bip39.NewSeed(mnemonic, "") // No passphrase for simplicity
+
+		// Derive the private key using BIP-44 derivation path
+		privateKey, err := deriveSolanaPrivateKey(seed, customPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to derive private key: %v", err)
 		}
+
+		// Create a Solana wallet from the private key
+		wallet, err = types.AccountFromSeed(privateKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create wallet from seed: %v", err)
+		}
+
+		// Set the derivation path
+		derivationPath = customPath
+		if derivationPath == "" {
+			derivationPath = "m/44'/501'/0'/0'" // Default Solana BIP-44 derivation path
+		}
+	} else if *infoFlag || *infoLongFlag {
+		// Generate a new mnemonic
+		entropy, err := bip39.NewEntropy(128) // 128 bits of entropy for a 12-word mnemonic
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate entropy: %v", err)
+		}
+
+		mnemonic, err = bip39.NewMnemonic(entropy)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate mnemonic: %v", err)
+		}
+
+		// Generate seed from mnemonic
+		seed := bip39.NewSeed(mnemonic, "")
+
+		// Derive the private key using default BIP-44 derivation path
+		privateKey, err := deriveSolanaPrivateKey(seed, "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to derive private key: %v", err)
+		}
+
+		// Create a Solana wallet from the private key
+		wallet, err = types.AccountFromSeed(privateKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create wallet from seed: %v", err)
+		}
+
+		derivationPath = "m/44'/501'/0'/0'"
+	} else {
+		// Generate a new wallet with a random mnemonic (not exposed)
+		wallet = types.NewAccount()
 	}
 
-	// Generate seed from mnemonic
-	seed := bip39.NewSeed(mnemonic, "") // No passphrase for simplicity
-
-	// Derive the private key using BIP-44 derivation path
-	privateKey, err := deriveSolanaPrivateKey(seed, customPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to derive private key: %v", err)
-	}
-
-	// Create a Solana wallet from the private key
-	wallet, err = types.AccountFromSeed(privateKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create wallet from seed: %v", err)
-	}
-
-	// Include the mnemonic in the KeyPair if -a/--all is set or a custom mnemonic is provided
-	var keyPairMnemonic string
-	if *infoFlag || *infoLongFlag || customMnemonic != "" {
-		keyPairMnemonic = mnemonic
-	}
-
-	// Set the derivation path
-	derivationPath := customPath
-	if derivationPath == "" {
-		derivationPath = "m/44'/501'/0'/0'" // Default Solana BIP-44 derivation path
-	}
-
-	return &KeyPair{
+	// Create the KeyPair
+	keyPair := &KeyPair{
 		network:        "solana",
 		private:        base58.Encode(wallet.PrivateKey),
 		public:         wallet.PublicKey.ToBase58(),
-		mnemonic:       keyPairMnemonic,
+		mnemonic:       mnemonic,
 		derivationPath: derivationPath,
-	}, nil
+	}
+
+	return keyPair, nil
 }
 
 // deriveSolanaPrivateKey derives the private key from the seed using the BIP-44 derivation path

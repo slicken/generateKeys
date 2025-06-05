@@ -143,3 +143,23 @@ func deriveSolanaPrivateKey(seed []byte, customPath string) ([]byte, error) {
 	// Return the private key bytes
 	return currentKey.Key, nil
 }
+
+func (sol solana) GenerateFromPrivateKey(privateKeyBase58 string) (*KeyPair, error) {
+	// Decode base58 private key
+	privateKeyBytes := base58.Decode(privateKeyBase58)
+	if len(privateKeyBytes) != 64 {
+		return nil, fmt.Errorf("invalid private key length: expected 64 bytes")
+	}
+
+	// Create Solana account from private key
+	wallet, err := types.AccountFromBytes(privateKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create account from private key: %v", err)
+	}
+
+	return &KeyPair{
+		network: "solana",
+		public:  wallet.PublicKey.ToBase58(),
+		private: privateKeyBase58,
+	}, nil
+}

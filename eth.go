@@ -132,3 +132,41 @@ func (eth ethereum) GenerateKeys() (*KeyPair, error) {
 		derivationPath: derivationPath,
 	}, nil
 }
+
+// GenerateFromPrivateKey generates the key pair from the provided private key hex string.
+func (eth ethereum) GenerateFromPrivateKey(privateKeyHex string) (*KeyPair, error) {
+	// Remove "0x" prefix if present
+	privateKeyHex = strings.TrimPrefix(privateKeyHex, "0x")
+
+	// Decode hex private key
+	privateKeyBytes, err := hexutil.Decode("0x" + privateKeyHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid private key format: %v", err)
+	}
+
+	// Create private key
+	privateKey, err := crypto.ToECDSA(privateKeyBytes)
+	if err != nil {
+		return nil, fmt.Errorf("invalid private key: %v", err)
+	}
+
+	// Generate public key
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("cannot assert type: publicKey is not of type *ecdsa.PublicKey")
+	}
+
+	// Get public key bytes
+	publicKeyBytes := crypto.FromECDSAPub(publicKeyECDSA)
+
+	// Generate Ethereum address
+	hash := sha3.NewLegacyKeccak256()
+	hash.Write(publicKeyBytes[1:])
+
+	return &KeyPair{
+		network: "ethereum",
+		private: privateKeyHex,
+		public:  hexutil.Encode(hash.Sum(nil)[12:]),
+	}, nil
+}

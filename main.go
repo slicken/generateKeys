@@ -38,6 +38,7 @@ Option:
                            Example: -i abcde,10000
   --custom_mnemonic        Use custom mnemonic.
   --custom_path            Use custom derivation path.
+  --custom_private         Use custom private key.
 `, os.Args[0])
 	os.Exit(1)
 }
@@ -57,6 +58,7 @@ func (k KeyPair) Print() {
 type Network interface {
 	Name() string
 	GenerateKeys() (*KeyPair, error)
+	GenerateFromPrivateKey(privateKey string) (*KeyPair, error)
 }
 
 var (
@@ -68,8 +70,10 @@ var (
 	infoLongFlag       = flag.Bool("all", false, "A boolean flag to generate and print a mnemonic.")
 	customMnemonicFlag = flag.String("custom_mnemonic", "", "Custom mnemonic phrase for key generation.")
 	customPathFlag     = flag.String("custom_path", "", "Custom derivation path for key generation.")
+	customPrivateFlag  = flag.String("custom_private", "", "Custom private key for key generation.")
 	customMnemonic     string
 	customPath         string
+	customPrivate      string
 )
 
 func main() {
@@ -99,6 +103,7 @@ func main() {
 	// Assign custom values
 	customMnemonic = *customMnemonicFlag
 	customPath = *customPathFlag
+	customPrivate = *customPrivateFlag
 
 	// Proceed with the rest of the program
 	var network Network
@@ -131,7 +136,15 @@ func main() {
 
 	// If we just want to generate a keypair without include logic
 	if include == "" {
-		keyPair, err := network.GenerateKeys()
+		var keyPair *KeyPair
+		var err error
+
+		if customPrivate != "" {
+			keyPair, err = network.GenerateFromPrivateKey(customPrivate)
+		} else {
+			keyPair, err = network.GenerateKeys()
+		}
+
 		if err != nil {
 			log.Fatalln(networkArg, err)
 		}
@@ -144,7 +157,15 @@ func main() {
 
 	var count int
 	for {
-		keyPair, err := network.GenerateKeys()
+		var keyPair *KeyPair
+		var err error
+
+		if customPrivate != "" {
+			keyPair, err = network.GenerateFromPrivateKey(customPrivate)
+		} else {
+			keyPair, err = network.GenerateKeys()
+		}
+
 		if err != nil {
 			fmt.Println(networkArg, err)
 			return

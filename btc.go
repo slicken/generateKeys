@@ -233,3 +233,29 @@ func (btc bitcoin) deriveChildKeyFromMaster(masterKey *bip32.Key, path string) (
 
 	return currentKey, nil
 }
+
+// Add this method after the existing GenerateKeys() function
+func (btc bitcoin) GenerateFromPrivateKey(privateKeyWIF string) (*KeyPair, error) {
+	// Decode WIF private key
+	wif, err := btcutil.DecodeWIF(privateKeyWIF)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode WIF private key: %v", err)
+	}
+
+	// Validate network parameters
+	if !wif.IsForNet(btc.getParams()) {
+		return nil, fmt.Errorf("private key is not for mainnet")
+	}
+
+	// Generate address from the private key
+	address, err := btc.getAddress(wif)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate address: %v", err)
+	}
+
+	return &KeyPair{
+		network: btc.name,
+		private: wif.String(),
+		public:  address.EncodeAddress(),
+	}, nil
+}

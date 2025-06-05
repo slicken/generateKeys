@@ -35,4 +35,5 @@ Option:
                            Example: -i abcde,10000
   --custom_mnemonic        Use custom mnemonic.
   --custom_path            Use custom derivation path.
+  --custom_private         Use custom private key.
 ```
